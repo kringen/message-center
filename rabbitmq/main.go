@@ -8,9 +8,9 @@ import (
 )
 
 type MessageCenter struct {
-	serverUrl  string
-	connection *amqp.Connection
-	channel    *amqp.Channel
+	ServerUrl  string
+	Connection *amqp.Connection
+	Channel    *amqp.Channel
 }
 
 func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds int) error {
@@ -19,7 +19,7 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 	var conn *amqp.Connection
 	var err error
 	for i := 0; i < attempts; i++ {
-		conn, err = amqp.Dial(m.serverUrl)
+		conn, err = amqp.Dial(m.ServerUrl)
 		log.Printf("Waiting for RabbitMQ Connection.  Attempt %d\n", i+1)
 		if conn == nil {
 			time.Sleep(interval)
@@ -27,8 +27,8 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 	}
 	if conn != nil {
 		log.Printf("Connection is successful!")
-		m.connection = conn
-		m.channel, err = m.connection.Channel()
+		m.Connection = conn
+		m.Channel, err = m.Connection.Channel()
 		if err != nil {
 			panic(err)
 		}
