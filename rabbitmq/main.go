@@ -4,7 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/streadway/amqp"
+	"context"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type MessageCenter struct {
@@ -38,4 +40,35 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 		return err
 	}
 
+}
+
+func (m *MessageCenter) CreateQueue(channel *amqp.Channel, name string, durable bool, deleteUnused bool,
+	exclusive bool, noWait bool, arguments map[string]interface{}) error {
+
+	q, err := channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MessageCenter) PublishMessage(ctx context.Context, channel *amqp.Channel, queue string, message string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var err error
+	err = channel.PublishWithContext(ctx,
+		"",    // exchange
+		queue, // routing key
+		false, // mandatory
+		false, // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(message),
+		})
+
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
