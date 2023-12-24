@@ -45,7 +45,7 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 func (m *MessageCenter) CreateQueue(channel *amqp.Channel, name string, durable bool, deleteUnused bool,
 	exclusive bool, noWait bool, arguments map[string]interface{}) error {
 
-	q, err := channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
+	_, err := channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
 	if err != nil {
 		return err
 	}
