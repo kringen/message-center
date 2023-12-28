@@ -42,21 +42,21 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 
 }
 
-func (m *MessageCenter) CreateQueue(channel *amqp.Channel, name string, durable bool, deleteUnused bool,
+func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool,
 	exclusive bool, noWait bool, arguments map[string]interface{}) error {
 
-	_, err := channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
+	_, err := m.Channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *MessageCenter) PublishMessage(ctx context.Context, channel *amqp.Channel, queue string, message string) error {
+func (m *MessageCenter) PublishMessage(ctx context.Context, queue string, message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var err error
-	err = channel.PublishWithContext(ctx,
+	err = m.Channel.PublishWithContext(ctx,
 		"",    // exchange
 		queue, // routing key
 		false, // mandatory
