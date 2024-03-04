@@ -52,18 +52,17 @@ func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool
 	return nil
 }
 
-func (m *MessageCenter) PublishMessage(ctx context.Context, queue string, message string) error {
+func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	var err error
-	err = m.Channel.PublishWithContext(ctx,
-		"",    // exchange
-		queue, // routing key
-		false, // mandatory
-		false, // immediate
+	err := m.Channel.PublishWithContext(ctx,
+		exchange,  // exchange ""
+		queue,     // routing key
+		mandatory, // mandatory
+		immediate, // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(message),
+			ContentType: contentType, //"text/plain"
+			Body:        message,
 		})
 
 	if err != nil {
@@ -71,4 +70,21 @@ func (m *MessageCenter) PublishMessage(ctx context.Context, queue string, messag
 	} else {
 		return nil
 	}
+}
+
+func (m *MessageCenter) ConsumeMessage(queue string, consumer string, autoAck bool, exclusive bool,
+	noLocal bool, noWait bool, arguments map[string]interface{}) (<-chan amqp.Delivery, error) {
+	messages, err := m.Channel.Consume(
+		queue,     // queue name
+		consumer,  // consumer ""
+		autoAck,   // auto-ack true
+		exclusive, // exclusive false
+		noLocal,   // no local false
+		noWait,    // no wait false
+		arguments, // arguments nil
+	)
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
