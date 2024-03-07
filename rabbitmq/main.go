@@ -88,3 +88,42 @@ func (m *MessageCenter) ConsumeMessage(queue string, consumer string, autoAck bo
 	}
 	return messages, nil
 }
+
+func (s *Saga) StartSaga(m *MessageCenter) {
+	/*
+		err := messageCenter.Connect(e.ChannelName, 5, 5)
+		if err != nil {
+			panic(err)
+		}
+		defer messageCenter.Connection.Close()
+		defer messageCenter.Channel.Close()
+	*/
+	// Loop through steps
+
+	for _, step := range s.SagaSteps {
+
+		if step.ActionType == "publish_and_confirm" {
+			// Create reply queue
+			err := m.CreateQueue(step.ReplyQueueName, false, false, false, false, nil)
+			if err != nil {
+				panic(err)
+			}
+			// Wait for reply
+			replies, err := m.ConsumeMessage(step.ReplyQueueName, "", true, false, false, false, nil)
+			if err != nil {
+				panic(err)
+			}
+			// Publish message
+			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain")
+			if err != nil {
+				panic(err)
+			}
+			s := make([]string, 0)
+			for message := range replies {
+				s = append(s, string(message.Body))
+			}
+			step.Results = s
+		}
+	}
+
+}
