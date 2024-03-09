@@ -109,20 +109,20 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 	// Loop through steps
 
 	for _, step := range s.SagaSteps {
-
+		logger.Info(fmt.Sprintf("Step: %s", step.StepName))
 		if step.ActionType == "publish_and_confirm" {
 			// Create reply queue
 			err := m.CreateQueue(step.ReplyQueueName, false, false, false, false, nil)
 			if err != nil {
 				panic(err)
 			}
-			// Wait for reply
-			replies, err := m.ConsumeMessage(step.ReplyQueueName, "", true, false, false, false, nil)
+			// Publish message
+			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain", s.CorrelationId, step.ReplyQueueName)
 			if err != nil {
 				panic(err)
 			}
-			// Publish message
-			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain", s.CorrelationId, step.ReplyQueueName)
+			// Wait for reply
+			replies, err := m.ConsumeMessage(step.ReplyQueueName, "", true, false, false, false, nil)
 			if err != nil {
 				panic(err)
 			}
@@ -132,6 +132,7 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 				s = append(s, string(message.Body))
 			}
 			step.Results = s
+			logger.Info(fmt.Sprintf("Replies: %v", step.Results))
 		}
 	}
 
