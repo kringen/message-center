@@ -59,7 +59,7 @@ func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool
 func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string, correlationId string, replyTo string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	logger.Info(fmt.Sprintf("Publishing message on queue: %s", queue))
+	logger.Info(fmt.Sprintf("Publishing message %v on queue: %s", message, queue))
 	err := m.Channel.PublishWithContext(ctx,
 		exchange,  // exchange ""
 		queue,     // routing key
