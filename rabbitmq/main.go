@@ -1,13 +1,17 @@
 package rabbitmq
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"context"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 type MessageCenter struct {
 	ServerUrl  string
@@ -22,13 +26,13 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 	var err error
 	for i := 0; i < attempts; i++ {
 		conn, err = amqp.Dial(m.ServerUrl)
-		log.Printf("Waiting for RabbitMQ Connection.  Attempt %d\n", i+1)
+		logger.Info(fmt.Sprintf("Waiting for RabbitMQ Connection.  Attempt %d\n", i+1))
 		if conn == nil {
 			time.Sleep(interval)
 		}
 	}
 	if conn != nil {
-		log.Printf("Connection is successful!")
+		logger.Info("Connection is successful!")
 		m.Connection = conn
 		m.Channel, err = m.Connection.Channel()
 		if err != nil {
@@ -36,7 +40,7 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 		}
 		return nil
 	} else {
-		log.Printf("Connection Timed Out!")
+		logger.Info("Connection timed out")
 		return err
 	}
 
@@ -44,7 +48,7 @@ func (m *MessageCenter) Connect(channel string, attempts int, intervalSeconds in
 
 func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool,
 	exclusive bool, noWait bool, arguments map[string]interface{}) error {
-
+	logger.Info(fmt.Sprintf("Creating queue: %s", name))
 	_, err := m.Channel.QueueDeclare(name, durable, deleteUnused, exclusive, noWait, arguments)
 	if err != nil {
 		return err
@@ -55,6 +59,7 @@ func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool
 func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	logger.Info(fmt.Sprintf("Publishing mesage on queue: %s", queue))
 	err := m.Channel.PublishWithContext(ctx,
 		exchange,  // exchange ""
 		queue,     // routing key
@@ -74,6 +79,7 @@ func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange st
 
 func (m *MessageCenter) ConsumeMessage(queue string, consumer string, autoAck bool, exclusive bool,
 	noLocal bool, noWait bool, arguments map[string]interface{}) (<-chan amqp.Delivery, error) {
+	logger.Info(fmt.Sprintf("Creating queue %s", queue))
 	messages, err := m.Channel.Consume(
 		queue,     // queue name
 		consumer,  // consumer ""
@@ -104,20 +110,24 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 
 		if step.ActionType == "publish_and_confirm" {
 			// Create reply queue
+			logger.Info(fmt.Sprintf("Creating reply queue: %s", step.ReplyQueueName))
 			err := m.CreateQueue(step.ReplyQueueName, false, false, false, false, nil)
 			if err != nil {
 				panic(err)
 			}
 			// Wait for reply
+			logger.Info(fmt.Sprintf("Consuming on queue: %s", step.ReplyQueueName))
 			replies, err := m.ConsumeMessage(step.ReplyQueueName, "", true, false, false, false, nil)
 			if err != nil {
 				panic(err)
 			}
 			// Publish message
+			logger.Info(fmt.Sprintf("Publishing on queue: %s", step.QueueName))
 			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain")
 			if err != nil {
 				panic(err)
 			}
+			// Convert message to string
 			s := make([]string, 0)
 			for message := range replies {
 				s = append(s, string(message.Body))
