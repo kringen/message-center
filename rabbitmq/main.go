@@ -56,18 +56,20 @@ func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool
 	return nil
 }
 
-func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string) error {
+func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string, correlationId string, replyTo string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	logger.Info(fmt.Sprintf("Publishing mesage on queue: %s", queue))
+	logger.Info(fmt.Sprintf("Publishing message on queue: %s", queue))
 	err := m.Channel.PublishWithContext(ctx,
 		exchange,  // exchange ""
 		queue,     // routing key
 		mandatory, // mandatory
 		immediate, // immediate
 		amqp.Publishing{
-			ContentType: contentType, //"text/plain"
-			Body:        message,
+			CorrelationId: correlationId,
+			ReplyTo:       replyTo,
+			ContentType:   contentType, //"text/plain"
+			Body:          message,
 		})
 
 	if err != nil {
@@ -120,7 +122,7 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 				panic(err)
 			}
 			// Publish message
-			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain")
+			err = m.PublishMessage(step.QueueName, step.DataObject, "", false, false, "text/plain", s.CorrelationId, step.ReplyQueueName)
 			if err != nil {
 				panic(err)
 			}
