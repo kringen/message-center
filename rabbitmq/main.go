@@ -56,6 +56,19 @@ func (m *MessageCenter) CreateQueue(name string, durable bool, deleteUnused bool
 	return nil
 }
 
+func (m *MessageCenter) ReceiveMessage(replyChannel chan string, queue string) {
+	// Listen for messages
+	messages, err := m.ConsumeMessage(queue, "", true, false, false, false, nil)
+	if err != nil {
+		logger.Error(err.Error())
+	}
+	for message := range messages {
+		// Continue to receive messages
+		logger.Info(fmt.Sprintf(" > Received message on %s: %s\n", queue, message.Body))
+		replyChannel <- string(message.Body)
+	}
+}
+
 func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string, correlationId string, replyTo string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -122,17 +135,19 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 				panic(err)
 			}
 			// Wait for reply
-			replies, err := m.ConsumeMessage(step.ReplyQueueName, "", true, false, false, false, nil)
-			if err != nil {
-				panic(err)
-			}
-			// Convert message to string
-			s := make([]string, 0)
-			for message := range replies {
-				s = append(s, string(message.Body))
-			}
-			step.Results = s
-			logger.Info(fmt.Sprintf("Replies: %v", step.Results))
+			// Startup service channels
+			replyChannel := make(chan string)
+			go m.ReceiveMessage(replyChannel, step.ReplyQueueName)
+			<-replyChannel
+			/*
+				// Convert message to string
+				s := make([]string, 0)
+				for message := range replies {
+					s = append(s, string(message.Body))
+				}
+				step.Results = s
+				logger.Info(fmt.Sprintf("Replies: %v", step.Results))
+			*/
 		}
 	}
 
