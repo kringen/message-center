@@ -64,7 +64,8 @@ func (m *MessageCenter) ReceiveMessage(replyChannel chan string, queue string) {
 	}
 	for message := range messages {
 		// Continue to receive messages
-		logger.Info(fmt.Sprintf(" > Received message on %s: %s\n", queue, message.Body))
+		logger.Info(fmt.Sprintf("Received message on %s", queue))
+		logger.Debug(fmt.Sprintf("Received message on %s: %s", queue, message.Body))
 		replyChannel <- string(message.Body)
 	}
 }
@@ -72,7 +73,8 @@ func (m *MessageCenter) ReceiveMessage(replyChannel chan string, queue string) {
 func (m *MessageCenter) PublishMessage(queue string, message []byte, exchange string, mandatory bool, immediate bool, contentType string, correlationId string, replyTo string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	logger.Info(fmt.Sprintf("Publishing message %v on queue: %s", message, queue))
+	logger.Info(fmt.Sprintf("Publishing message on queue: %s", queue))
+	logger.Debug(fmt.Sprintf("Publishing message %v on queue: %s", message, queue))
 	err := m.Channel.PublishWithContext(ctx,
 		exchange,  // exchange ""
 		queue,     // routing key
@@ -139,15 +141,7 @@ func (s *Saga) StartSaga(m *MessageCenter) {
 			replyChannel := make(chan string)
 			go m.ReceiveMessage(replyChannel, step.ReplyQueueName)
 			<-replyChannel
-			/*
-				// Convert message to string
-				s := make([]string, 0)
-				for message := range replies {
-					s = append(s, string(message.Body))
-				}
-				step.Results = s
-				logger.Info(fmt.Sprintf("Replies: %v", step.Results))
-			*/
+
 		}
 	}
 
